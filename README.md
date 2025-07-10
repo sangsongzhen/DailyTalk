@@ -166,6 +166,7 @@ git push -u origin main                   # 推送到 GitHub
 ```
 # yi hou 
 ```
+rm -rf .git  # 删除 Git 历史
 cd ~/TTS/MyNewProject        # 进入项目
 git add .
 git commit -m "描述你改了什么"
