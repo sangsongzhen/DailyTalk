@@ -97,12 +97,13 @@ if __name__ == '__main__':
     predictor = torch.hub.load("tarepan/SpeechMOS:v1.2.0", "utmos22_strong", trust_repo=True)
 
     # 顶层目录
-    base_dir = "./output/result/7.5/900000"
+    base_dir = "./output/result/FiLM/900000"
     # base_dir = "./raw_data/DailyTalk/data"
 
 
     # ❗ 手动指定你要评估的子目录（10个）
     target_subdirs = ["23", "403", "590", "877", "1091", "1298", "1618", "1829", "1949", "2463"]
+    # target_subdirs = ["1112", "1126", "1238", "1298", "1325", "1452", "1898", "1908", "1936", "1987"]
 
     total_scores = []
     for subdir_name in target_subdirs:

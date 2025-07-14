@@ -118,3 +118,9 @@ TextGrid/
 hifigan/*.pth.tar
 *.out
 deepspeaker/pretrained_models/*
+output_before_7_14/
+preprocessed_data/
+raw_data/
+*.npy
+*.pt
+*.ckpt
