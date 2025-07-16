@@ -153,16 +153,16 @@ class CompTransTTS(nn.Module):
         if mix_encodings is not None and mix_encodings.shape[-1] == 512:
             mix_encodings = self.mix_proj(mix_encodings)
 
-        if mix_encodings is not None:
-            # 假设 mix_encodings: [B, H]
-            gamma_beta = self.film_mlp(mix_encodings)       # [B, 2H]
-            gammas, betas = gamma_beta.chunk(2, dim=-1)     # [B, H], [B, H]
-            gammas = gammas.unsqueeze(1)  # → [B, 1, H]
-            betas = betas.unsqueeze(1)    # → [B, 1, H]
-            mix_encodings = mix_encodings.unsqueeze(1)      # [B, 1, H]
+        # if mix_encodings is not None:
+        #     # 假设 mix_encodings: [B, H]
+        #     gamma_beta = self.film_mlp(mix_encodings)       # [B, 2H]
+        #     gammas, betas = gamma_beta.chunk(2, dim=-1)     # [B, H], [B, H]
+        #     gammas = gammas.unsqueeze(1)  # → [B, 1, H]
+        #     betas = betas.unsqueeze(1)    # → [B, 1, H]
+        #     mix_encodings = mix_encodings.unsqueeze(1)      # [B, 1, H]
 
-            mix_encodings = self.film(mix_encodings, gammas, betas)  # [B, 1, H]
-            mix_encodings = mix_encodings.squeeze(1)                 # → [B, H]
+        #     mix_encodings = self.film(mix_encodings, gammas, betas)  # [B, 1, H]
+        #     mix_encodings = mix_encodings.squeeze(1)                 # → [B, H]
 
 
         speaker_embeds = None
@@ -191,7 +191,8 @@ class CompTransTTS(nn.Module):
         ) = self.variance_adaptor(
             speaker_embeds,
             emotion_embeds,
-            context_encodings,
+            # context_encodings,
+            mix_encodings,
             texts,
             text_embeds,
             src_lens,

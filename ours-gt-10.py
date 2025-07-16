@@ -7,7 +7,7 @@ from speechbrain.dataio.dataio import read_audio
 from scipy.spatial.distance import cosine
 
 # 设置路径
-pred_root = "./output/result/FiLM/900000"
+pred_root = "./output/result/DailyTalk/900000"
 ref_root = "./raw_data/DailyTalk/data"
 
 # 指定要评估的对话编号（可以替换为任意 10 个）

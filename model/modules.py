@@ -293,7 +293,8 @@ class VarianceAdaptor(nn.Module):
         self,
         speaker_embedding,
         emotion_embedding,
-        context_encoding,
+        # context_encoding,
+        mix_encodings,
         text,
         text_embedding,
         src_len,
@@ -321,8 +322,12 @@ class VarianceAdaptor(nn.Module):
                 -1, text.shape[1], -1
             )
         # x_dur = x.clone()
-        if context_encoding is not None:
-            x = x + context_encoding.unsqueeze(1).expand(
+        # if context_encoding is not None:
+        #     x = x + context_encoding.unsqueeze(1).expand(
+        #         -1, text.shape[1], -1
+        #     )
+        if mix_encodings is not None:
+            x = x + mix_encodings.unsqueeze(1).expand(
                 -1, text.shape[1], -1
             )
 
@@ -974,23 +979,46 @@ class RoleStyleEncoder(nn.Module):
         return role_style_vec
 
 
+# class FiLM(nn.Module):
+#     """
+#     A Feature-wise Linear Modulation Layer from
+#     'FiLM: Visual Reasoning with a General Conditioning Layer'
+#     , extended to 'TADAM: Task dependent adaptive metric for improved few-shot learning'
+#     """
+#     def __init__(self):
+#         super(FiLM, self).__init__()
+#         self.s_gamma = nn.Parameter(torch.ones(1,), requires_grad=True)
+#         self.s_beta = nn.Parameter(torch.ones(1,), requires_grad=True)
+
+#     def forward(self, x, gammas, betas):
+#         """
+#         x -- [B, T, H]
+#         gammas -- [B, 1, H]
+#         betas -- [B, 1, H]
+#         """
+#         gammas = self.s_gamma * gammas.expand_as(x)
+#         betas = self.s_beta * betas.expand_as(x)
+#         return (gammas + 1.0) * x + betas
 class FiLM(nn.Module):
     """
-    A Feature-wise Linear Modulation Layer from
-    'FiLM: Visual Reasoning with a General Conditioning Layer'
-    , extended to 'TADAM: Task dependent adaptive metric for improved few-shot learning'
+    A Feature-wise Linear Modulation Layer
     """
     def __init__(self):
         super(FiLM, self).__init__()
-        self.s_gamma = nn.Parameter(torch.ones(1,), requires_grad=True)
-        self.s_beta = nn.Parameter(torch.ones(1,), requires_grad=True)
+        self.s_gamma = nn.Parameter(torch.ones(1), requires_grad=True)
+        self.s_beta = nn.Parameter(torch.ones(1), requires_grad=True)
 
     def forward(self, x, gammas, betas):
         """
-        x -- [B, T, H]
-        gammas -- [B, 1, H]
-        betas -- [B, 1, H]
+        x: [B, T, H]
+        gammas: [B, 1, H] or [B, H]
+        betas:  [B, 1, H] or [B, H]
         """
+        if gammas.dim() == 2:
+            gammas = gammas.unsqueeze(1)
+        if betas.dim() == 2:
+            betas = betas.unsqueeze(1)
+
         gammas = self.s_gamma * gammas.expand_as(x)
         betas = self.s_beta * betas.expand_as(x)
-        return (gammas + 1.0) * x + betas
+        return (1.0 + gammas) * x + betas
