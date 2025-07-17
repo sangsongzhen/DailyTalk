@@ -146,3 +146,27 @@ class ConvNorm(nn.Module):
             x = x.contiguous().transpose(1, 2)
 
         return x
+
+class FiLM(nn.Module):
+    """
+    A Feature-wise Linear Modulation Layer
+    """
+    def __init__(self):
+        super(FiLM, self).__init__()
+        self.s_gamma = nn.Parameter(torch.ones(1), requires_grad=True)
+        self.s_beta = nn.Parameter(torch.ones(1), requires_grad=True)
+
+    def forward(self, x, gammas, betas):
+        """
+        x: [B, T, H]
+        gammas: [B, 1, H] or [B, H]
+        betas:  [B, 1, H] or [B, H]
+        """
+        if gammas.dim() == 2:
+            gammas = gammas.unsqueeze(1)
+        if betas.dim() == 2:
+            betas = betas.unsqueeze(1)
+
+        gammas = self.s_gamma * gammas.expand_as(x)
+        betas = self.s_beta * betas.expand_as(x)
+        return (1.0 + gammas) * x + betas

@@ -11,9 +11,9 @@ pred_root = "./output/result/DailyTalk/900000"
 ref_root = "./raw_data/DailyTalk/data"
 
 # 指定要评估的对话编号（可以替换为任意 10 个）
-dialog_ids = [23, 403, 590, 877, 1046, 1172, 1618, 1829, 1983, 2463]
+# dialog_ids = [23, 403, 590, 877, 1046, 1172, 1618, 1829, 1983, 2463]
 # 15 more
-# dialog_ids = [1112, 1126, 1238, 1298, 1325, 1452, 1898, 1908, 1936, 1987]
+dialog_ids = [1112, 1126, 1238, 1298, 1325, 1452, 1898, 1908, 1936, 1987]
 
 # 加载 speaker encoder 模型
 classifier = EncoderClassifier.from_hparams(

@@ -9,6 +9,7 @@ from .constants import PAD
 from .blocks import (
     get_sinusoid_encoding_table,
     LinearNorm,
+    FiLM
 )
 
 
@@ -52,7 +53,7 @@ class TextEncoder(nn.Module):
             ]
         )
 
-    def forward(self, src_seq, mask, return_attns=False):
+    def forward(self, src_seq, mask, gammas, betas, return_attns=False):
 
         enc_slf_attn_list = []
         batch_size, max_len = src_seq.shape[0], src_seq.shape[1]
@@ -75,7 +76,7 @@ class TextEncoder(nn.Module):
 
         for enc_layer in self.layer_stack:
             enc_output, enc_slf_attn = enc_layer(
-                enc_output, mask=mask, slf_attn_mask=slf_attn_mask
+                enc_output, gammas, betas, mask=mask, slf_attn_mask=slf_attn_mask
             )
             if return_attns:
                 enc_slf_attn_list += [enc_slf_attn]
@@ -119,7 +120,7 @@ class Decoder(nn.Module):
             ]
         )
 
-    def forward(self, enc_seq, mask, return_attns=False):
+    def forward(self, enc_seq, mask, gammas, betas, return_attns=False):
 
         dec_slf_attn_list = []
         batch_size, max_len = enc_seq.shape[0], enc_seq.shape[1]
@@ -146,7 +147,7 @@ class Decoder(nn.Module):
 
         for dec_layer in self.layer_stack:
             dec_output, dec_slf_attn = dec_layer(
-                dec_output, mask=mask, slf_attn_mask=slf_attn_mask
+                dec_output, gammas, betas, mask=mask, slf_attn_mask=slf_attn_mask
             )
             if return_attns:
                 dec_slf_attn_list += [dec_slf_attn]
@@ -157,14 +158,16 @@ class Decoder(nn.Module):
 class FFTBlock(nn.Module):
     """ FFT Block """
 
-    def __init__(self, d_model, n_head, d_k, d_v, d_inner, kernel_size, dropout=0.1):
+    def __init__(self, d_model, n_head, d_k, d_v, d_inner, kernel_size, dropout=0.1, film=True):
         super(FFTBlock, self).__init__()
         self.slf_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout)
         self.pos_ffn = PositionwiseFeedForward(
             d_model, d_inner, kernel_size, dropout=dropout
         )
+        if film:
+            self.film = FiLM()
 
-    def forward(self, enc_input, mask=None, slf_attn_mask=None):
+    def forward(self, enc_input, gammas=None, betas=None, mask=None, slf_attn_mask=None):
         enc_output, enc_slf_attn = self.slf_attn(
             enc_input, enc_input, enc_input, mask=slf_attn_mask
         )
@@ -172,6 +175,12 @@ class FFTBlock(nn.Module):
             enc_output = enc_output.masked_fill(mask.unsqueeze(-1), 0)
 
         enc_output = self.pos_ffn(enc_output)
+
+        # FiLM
+        if gammas is not None and betas is not None:
+            enc_output = self.film(enc_output, gammas, betas)
+
+
         if mask is not None:
             enc_output = enc_output.masked_fill(mask.unsqueeze(-1), 0)
 

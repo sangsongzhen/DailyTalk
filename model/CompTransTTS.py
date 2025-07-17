@@ -5,8 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .modules import PostNet, VarianceAdaptor, ConversationalContextEncoder, RoleStyleEncoder, FiLM
+from .modules import PostNet, VarianceAdaptor, ConversationalContextEncoder, RoleStyleEncoder
 from utils.tools import get_mask_from_lengths
+from .transformers.blocks import FiLM
 
 
 class CompTransTTS(nn.Module):
@@ -117,7 +118,7 @@ class CompTransTTS(nn.Module):
             else None
         )
 
-        texts, text_embeds = self.encoder(texts, src_masks)
+        # texts, text_embeds = self.encoder(texts, src_masks)
 
         # Context Encoding
         context_encodings = None
@@ -153,16 +154,16 @@ class CompTransTTS(nn.Module):
         if mix_encodings is not None and mix_encodings.shape[-1] == 512:
             mix_encodings = self.mix_proj(mix_encodings)
 
-        # if mix_encodings is not None:
-        #     # 假设 mix_encodings: [B, H]
-        #     gamma_beta = self.film_mlp(mix_encodings)       # [B, 2H]
-        #     gammas, betas = gamma_beta.chunk(2, dim=-1)     # [B, H], [B, H]
-        #     gammas = gammas.unsqueeze(1)  # → [B, 1, H]
-        #     betas = betas.unsqueeze(1)    # → [B, 1, H]
-        #     mix_encodings = mix_encodings.unsqueeze(1)      # [B, 1, H]
+        if mix_encodings is not None:
+            # 假设 mix_encodings: [B, H]
+            gamma_beta = self.film_mlp(mix_encodings)       # [B, 2H]
+            gammas, betas = gamma_beta.chunk(2, dim=-1)     # [B, H], [B, H]
+            gammas = gammas.unsqueeze(1)  # → [B, 1, H]
+            betas = betas.unsqueeze(1)    # → [B, 1, H]
+            mix_encodings = mix_encodings.unsqueeze(1)      # [B, 1, H]
 
-        #     mix_encodings = self.film(mix_encodings, gammas, betas)  # [B, 1, H]
-        #     mix_encodings = mix_encodings.squeeze(1)                 # → [B, H]
+            mix_encodings = self.film(mix_encodings, gammas, betas)  # [B, 1, H]
+            mix_encodings = mix_encodings.squeeze(1)                 # → [B, H]
 
 
         speaker_embeds = None
@@ -176,6 +177,9 @@ class CompTransTTS(nn.Module):
         emotion_embeds = None
         if self.emotion_emb is not None:
             emotion_embeds = self.emotion_emb(emotions)
+
+        # FiLM Encoder
+        texts, text_embeds = self.encoder(texts, src_masks, gammas, betas)
 
         (
             output,
@@ -211,7 +215,8 @@ class CompTransTTS(nn.Module):
             step,
         )
 
-        output, mel_masks = self.decoder(output, mel_masks)
+        # FiLM Decoder
+        output, mel_masks = self.decoder(output, mel_masks, gammas, betas)
         output = self.mel_linear(output)
 
         postnet_output = self.postnet(output) + output
