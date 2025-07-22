@@ -25,6 +25,7 @@ class Dataset(Dataset):
         self.load_emotion = model_config["multi_emotion"]
         self.history_type = model_config["history_encoder"]["type"]
         self.text_emb_size = model_config["history_encoder"]["text_emb_size"]
+        self.audio_emb_size = model_config["style_encoder"]["audio_emb_size"]
         self.max_history_len = model_config["history_encoder"]["max_history_len"]
 
         self.pitch_level_tag, self.energy_level_tag, *_ = get_variance_level(preprocess_config, model_config)
@@ -104,7 +105,7 @@ class Dataset(Dataset):
         history_speaker = list()
         history_mel_len = list()
         history = None
-        history_audio_emb = list()
+        history_audio_emb = list()  # speaker embedding list
 
         if self.history_type != "none":
             history_basenames = sorted([tg_path.replace(".wav", "") for tg_path in os.listdir(os.path.join(self.raw_path, self.sub_dir_name, f"{dialog}")) if ".wav" in tg_path], key=lambda x:int(x.split("_")[0]))
@@ -204,7 +205,8 @@ class Dataset(Dataset):
                     "history_len": history_len,
                     "history_text_emb": history_text_emb,
                     "history_speaker": history_speaker,
-                    "history_audio_emb": history_audio_emb
+                    "history_audio_emb": history_audio_emb,
+                    "history_audio_len": history_audio_len
                 }
 
         sample = {
@@ -247,8 +249,7 @@ class Dataset(Dataset):
             history_emotion.append(0) if history_emotion is not None else None # meaningless zero padding, should be cut out by mask of history_len
             history_speaker.append(0) if history_speaker is not None else None # meaningless zero padding, should be cut out by mask of history_len
             history_mel_len.append(0) if history_mel_len is not None else None # meaningless zero padding, should be cut out by mask of history_len
-            history_audio_emb.append(np.zeros(768, dtype=np.float32)) if history_audio_emb is not None else None  # ✅ 新增 padding
-            # history_audio_emb.append(np.zeros(768, dtype=np.float32)) if history_audio_emb is not None else None  # ✅ 新增 padding
+            history_audio_emb.append(np.zeros(self.audio_emb_size, dtype=np.float32)) if history_audio_emb is not None else None  # ✅ 新增 padding
 
     def process_meta(self, filename):
         with open(
@@ -307,6 +308,8 @@ class Dataset(Dataset):
                 history_text_embs = np.array([data[idx]["history"]["history_text_emb"] for idx in idxs])
                 history_speakers = np.array([data[idx]["history"]["history_speaker"] for idx in idxs])
                 history_audio_embs = np.array([data[idx]["history"]["history_audio_emb"] for idx in idxs])
+                history_audio_lens = np.array([data[idx]["history"]["history_audio_len"] for idx in idxs])
+
 
                 # 转换为 Tensor 并保持 Tuple
                 history_info = (
@@ -315,6 +318,7 @@ class Dataset(Dataset):
                     torch.from_numpy(history_text_embs),
                     torch.from_numpy(history_speakers),
                     torch.from_numpy(history_audio_embs),
+                    torch.from_numpy(history_audio_lens),
                 )
         # if self.history_type != "none":
         #     if self.history_type == "Guo":
@@ -828,7 +832,8 @@ class TextDataset(Dataset):
                     "history_len": history_len,
                     "history_text_emb": history_text_emb,
                     "history_speaker": history_speaker,
-                    "history_audio_emb": history_audio_emb # ⭐️ 新加
+                    "history_audio_emb": history_audio_emb, # ⭐️ 新加
+                    "history_audio_len": history_audio_len
                 }
 
         return (basename, speaker_id, phone, raw_text, spker_embed, emotion_id, history)
@@ -856,7 +861,7 @@ class TextDataset(Dataset):
             history_emotion.append(0) if history_emotion is not None else None # meaningless zero padding, should be cut out by mask of history_len
             history_speaker.append(0) if history_speaker is not None else None # meaningless zero padding, should be cut out by mask of history_len
             history_mel_len.append(0) if history_mel_len is not None else None # meaningless zero padding, should be cut out by mask of history_len
-            history_audio_emb.append(np.zeros(768, dtype=np.float32)) if history_audio_emb is not None else None  # ✅ 新增 padding
+            history_audio_emb.append(np.zeros(self.audio_emb_size, dtype=np.float32)) if history_audio_emb is not None else None  # ✅ 新增 padding
 
     def process_meta(self, filename):
         with open(filename, "r", encoding="utf-8") as f:
@@ -916,6 +921,8 @@ class TextDataset(Dataset):
                 history_text_embs = np.array([d[6]["history_text_emb"] for d in data])
                 history_speakers = np.array([d[6]["history_speaker"] for d in data])
                 history_audio_embs = np.array([d[6]["history_audio_emb"] for d in data])
+                history_audio_lens = np.array([d[6]["history_audio_len"] for d in data])
+
 
                 # 转换为 Tensor 并保持 Tuple
                 history_info = (
@@ -924,6 +931,7 @@ class TextDataset(Dataset):
                     torch.from_numpy(history_text_embs),
                     torch.from_numpy(history_speakers),
                     torch.from_numpy(history_audio_embs),
+                    torch.from_numpy(history_audio_lens),
                 )
 
         return ids, raw_texts, speakers, texts, text_lens, max(text_lens), spker_embeds, emotions, history_info

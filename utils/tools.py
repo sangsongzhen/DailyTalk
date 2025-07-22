@@ -138,13 +138,14 @@ def to_device(data, device):
         #             history_speakers,
         #         )
         if history_info is not None:
-            if len(history_info) == 5: # "Guo"
+            if len(history_info) == 6: # "Guo"
                 (
                     text_embs,
                     history_lens,
                     history_text_embs,
                     history_speakers,
-                    history_audio_embs
+                    history_audio_embs,
+                    history_audio_lens,
                 ) = history_info
 
                 # text_embs = torch.from_numpy(text_embs).float().to(device)
@@ -157,13 +158,15 @@ def to_device(data, device):
                 history_text_embs = history_text_embs.float().to(device)
                 history_speakers = history_speakers.long().to(device)
                 history_audio_embs = history_audio_embs.float().to(device)
+                history_audio_lens = history_audio_lens.float().to(device)
 
                 history_info = (
                     text_embs,
                     history_lens,
                     history_text_embs,
                     history_speakers,
-                    history_audio_embs
+                    history_audio_embs,
+                    history_audio_lens
                 )
 
         return [
@@ -202,18 +205,24 @@ def to_device(data, device):
                     history_lens,
                     history_text_embs,
                     history_speakers,
+                    history_audio_embs,
+                    history_audio_lens
                 ) = history_info
 
                 text_embs = torch.from_numpy(text_embs).float().to(device)
                 history_lens = torch.from_numpy(history_lens).to(device)
                 history_text_embs = torch.from_numpy(history_text_embs).float().to(device)
                 history_speakers = torch.from_numpy(history_speakers).long().to(device)
+                history_audio_embs = torch.from_numpy(history_audio_embs).long().to(device)
+                history_audio_lens = torch.from_numpy(history_audio_lens).long().to(device)
 
                 history_info = (
                     text_embs,
                     history_lens,
                     history_text_embs,
                     history_speakers,
+                    history_audio_embs,
+                    history_audio_lens
                 )
 
         return (ids, raw_texts, speakers, texts, src_lens, max_src_len, spker_embeds, emotions, history_info)

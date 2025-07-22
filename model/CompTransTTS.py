@@ -132,11 +132,12 @@ class CompTransTTS(nn.Module):
                     history_lens,
                     history_text_embs,
                     history_speakers,
-                    history_audio_embs
+                    history_audio_embs,
+                    history_audio_lens
                 ) = history_info
 
                 if self.use_role_encoder:
-                    role_style_vec = self.role_style_encoder(history_audio_embs, history_lens)
+                    role_style_vec = self.role_style_encoder(history_audio_embs, history_audio_lens)
                 context_encodings = self.context_encoder(
                     text_embs,
                     speakers,
