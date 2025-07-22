@@ -1,4 +1,5 @@
 block_type: "transformer"
+use_film: False
 external_speaker_dim: 512
 
 duration_modeling:

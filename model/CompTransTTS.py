@@ -74,7 +74,8 @@ class CompTransTTS(nn.Module):
             )
         
         # 语音角色风格编码器
-        if model_config["style_encoder"]["use_role_encoder"]:
+        self.use_role_encoder = model_config["style_encoder"]["use_role_encoder"]
+        if self.use_role_encoder:
             self.role_style_encoder = RoleStyleEncoder(model_config)
         
         self.history_type = model_config["history_encoder"]["type"]
@@ -83,6 +84,8 @@ class CompTransTTS(nn.Module):
             if self.history_type == "Guo":
                 self.context_encoder = ConversationalContextEncoder(preprocess_config, model_config)
         # FiLM
+        self.use_film = model_config["use_film"]
+
         self.film = FiLM()
         self.film_mlp = nn.Sequential(
             nn.Linear(model_config["transformer"]["encoder_hidden"], model_config["transformer"]["encoder_hidden"] * 2),
@@ -132,7 +135,8 @@ class CompTransTTS(nn.Module):
                     history_audio_embs
                 ) = history_info
 
-                role_style_vec = self.role_style_encoder(history_audio_embs, history_lens)
+                if self.use_role_encoder:
+                    role_style_vec = self.role_style_encoder(history_audio_embs, history_lens)
                 context_encodings = self.context_encoder(
                     text_embs,
                     speakers,
@@ -153,7 +157,7 @@ class CompTransTTS(nn.Module):
         # 如果拼接后是512维，做降维
         if mix_encodings is not None and mix_encodings.shape[-1] == 512:
             mix_encodings = self.mix_proj(mix_encodings)
-
+        
         if mix_encodings is not None:
             # 假设 mix_encodings: [B, H]
             gamma_beta = self.film_mlp(mix_encodings)       # [B, 2H]
@@ -179,7 +183,7 @@ class CompTransTTS(nn.Module):
             emotion_embeds = self.emotion_emb(emotions)
 
         # FiLM Encoder
-        texts, text_embeds = self.encoder(texts, src_masks, gammas, betas)
+        texts, text_embeds = self.encoder(texts, src_masks, gammas, betas, use_film = self.use_film)
 
         (
             output,
@@ -216,7 +220,7 @@ class CompTransTTS(nn.Module):
         )
 
         # FiLM Decoder
-        output, mel_masks = self.decoder(output, mel_masks, gammas, betas)
+        output, mel_masks = self.decoder(output, mel_masks, gammas, betas, use_film = self.use_film)
         output = self.mel_linear(output)
 
         postnet_output = self.postnet(output) + output

@@ -53,7 +53,7 @@ class TextEncoder(nn.Module):
             ]
         )
 
-    def forward(self, src_seq, mask, gammas, betas, return_attns=False):
+    def forward(self, src_seq, mask, gammas, betas, use_film=False, return_attns=False):
 
         enc_slf_attn_list = []
         batch_size, max_len = src_seq.shape[0], src_seq.shape[1]
@@ -75,8 +75,13 @@ class TextEncoder(nn.Module):
             ].expand(batch_size, -1, -1)
 
         for enc_layer in self.layer_stack:
-            enc_output, enc_slf_attn = enc_layer(
-                enc_output, gammas, betas, mask=mask, slf_attn_mask=slf_attn_mask
+            if use_film:
+                enc_output, enc_slf_attn = enc_layer(
+                    enc_output, gammas, betas, mask=mask, slf_attn_mask=slf_attn_mask
+                )
+            else:
+                enc_output, enc_slf_attn = enc_layer(
+                enc_output, mask=mask, slf_attn_mask=slf_attn_mask
             )
             if return_attns:
                 enc_slf_attn_list += [enc_slf_attn]
@@ -120,7 +125,7 @@ class Decoder(nn.Module):
             ]
         )
 
-    def forward(self, enc_seq, mask, gammas, betas, return_attns=False):
+    def forward(self, enc_seq, mask, gammas, betas, use_film=False, return_attns=False):
 
         dec_slf_attn_list = []
         batch_size, max_len = enc_seq.shape[0], enc_seq.shape[1]
@@ -146,9 +151,15 @@ class Decoder(nn.Module):
             slf_attn_mask = slf_attn_mask[:, :, :max_len]
 
         for dec_layer in self.layer_stack:
-            dec_output, dec_slf_attn = dec_layer(
-                dec_output, gammas, betas, mask=mask, slf_attn_mask=slf_attn_mask
+            if use_film:
+                dec_output, dec_slf_attn = dec_layer(
+                    dec_output, gammas, betas, mask=mask, slf_attn_mask=slf_attn_mask
+                )
+            else:
+                dec_output, dec_slf_attn = dec_layer(
+                dec_output, mask=mask, slf_attn_mask=slf_attn_mask
             )
+                
             if return_attns:
                 dec_slf_attn_list += [dec_slf_attn]
 
@@ -167,7 +178,7 @@ class FFTBlock(nn.Module):
         if film:
             self.film = FiLM()
 
-    def forward(self, enc_input, gammas=None, betas=None, mask=None, slf_attn_mask=None):
+    def forward(self, enc_input, gammas=None, betas=None, use_film=False, mask=None, slf_attn_mask=None):
         enc_output, enc_slf_attn = self.slf_attn(
             enc_input, enc_input, enc_input, mask=slf_attn_mask
         )
@@ -177,8 +188,9 @@ class FFTBlock(nn.Module):
         enc_output = self.pos_ffn(enc_output)
 
         # FiLM
-        if gammas is not None and betas is not None:
-            enc_output = self.film(enc_output, gammas, betas)
+        if use_film:
+            if gammas is not None and betas is not None:
+                enc_output = self.film(enc_output, gammas, betas)
 
 
         if mask is not None:

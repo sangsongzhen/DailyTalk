@@ -272,6 +272,8 @@ if __name__ == "__main__":
     # print(' ---> Batch size in total:', batch_size * num_gpus)
     print(' ---> Batch size in total:', batch_size)
     print(" ---> Type of Building Block:", model_config["block_type"])
+    print(" ---> use_role_encoder:", model_config["style_encoder"]["use_role_encoder"])
+    print(" ---> use_film:", model_config["use_film"])
     print(" ---> Type of Duration Modeling:", "unsupervised" if model_config["duration_modeling"]["learn_alignment"] else "supervised")
     print("=================================================================================================")
     print("Prepare training ...")
