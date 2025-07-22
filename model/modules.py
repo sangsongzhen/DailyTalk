@@ -845,25 +845,23 @@ class SLA(nn.Module):
 
         return fused_rep
 
-# avg pooling
+# GRU + attention
 # class RoleStyleEncoder(nn.Module):
-#     """ 语音角色风格编码器 """
+#     """ 改写后的语音风格编码器，结构参考 ConversationalContextEncoder """
 
 #     def __init__(self, model_config):
 #         super(RoleStyleEncoder, self).__init__()
-#         # 配置
-#         self.input_dim = model_config["style_encoder"]["input_dim"]     # 768 (WavLM输出维度)
-#         # self.input_dim = 512     # text emb debug
+#         self.input_dim = model_config["style_encoder"]["input_dim"]     # 768
 #         self.hidden_dim = model_config["style_encoder"]["hidden_dim"]   # 128
 #         self.output_dim = model_config["style_encoder"]["output_dim"]   # 256
 #         self.num_layers = model_config["style_encoder"]["num_layers"]   # 2
 #         self.dropout = model_config["style_encoder"]["dropout"]         # 0.2
 #         self.max_history_len = model_config["style_encoder"]["max_history_len"]  # 10
 
-#         # 输入线性映射层（将WavLM输出统一为hidden维度）
-#         self.input_proj = nn.Linear(self.input_dim, self.hidden_dim)    # 768 → 128
+#         # 映射输入维度
+#         self.input_proj = nn.Linear(self.input_dim, self.hidden_dim)
 
-#         # 时序建模层（双向GRU）
+#         # GRU建模
 #         self.gru = nn.GRU(
 #             input_size=self.hidden_dim,
 #             hidden_size=self.hidden_dim,
@@ -872,131 +870,110 @@ class SLA(nn.Module):
 #             batch_first=True,
 #             bidirectional=True
 #         )
+
 #         self.gru_linear = nn.Sequential(
-#             nn.Linear(2 * self.hidden_dim, self.hidden_dim),  # 双向GRU拼接后投回128
+#             nn.Linear(2 * self.hidden_dim, self.hidden_dim),
 #             nn.ReLU()
 #         )
 
-#         # 输出风格向量（映射到控制模块需要的维度，例如256）
-#         self.output_proj = nn.Linear(self.hidden_dim, self.output_dim)  # 128 → 256
+#         # Attention + 输出投影
+#         self.context_attention = SLA(self.hidden_dim)
+#         self.output_proj = nn.Linear(self.hidden_dim, self.output_dim)
 
 #     def forward(self, history_audio_emb, history_lens):
 #         """
-#         输入：
-#             history_audio_emb: [B, max_history_len, input_dim] （句子级WavLM特征）
-#             history_lens: [B]，表示每个batch样本中历史实际句数
-#         输出：
-#             role_style_vec: [B, output_dim]
+#         输入:
+#             history_audio_emb: [B, N, 768]
+#             history_lens: [B]
+#         输出:
+#             role_style_vec: [B, 256]
 #         """
-#         # history_lens = torch.tensor(history_lens, device='cuda')
-#         history_lens = history_lens.clone().detach().to('cuda')
-#         # 构造mask
-#         history_masks = get_mask_from_lengths(history_lens, self.max_history_len)
+#         device = history_audio_emb.device
+#         history_lens = history_lens.to(device)
+#         history_masks = get_mask_from_lengths(history_lens, self.max_history_len)  # [B, N]
 
-#         # Step 1: 映射到hidden维度
-#         x = self.input_proj(history_audio_emb)  # [B, N, 128]
+#         # Step 1: 映射输入
+#         x = self.input_proj(history_audio_emb)  # [B, N, H]
 
-#         # Step 2: GRU建模历史语音序列
-#         x, _ = self.gru(x)                      # [B, N, 2*128]
-#         x = self.gru_linear(x)                  # [B, N, 128]
+#         # Step 2: GRU建模
+#         x, _ = self.gru(x)                      # [B, N, 2H]
+#         x = self.gru_linear(x)                  # [B, N, H]
 
-#         # Step 3: Mask padding
-#         x = x.masked_fill(history_masks.unsqueeze(-1), 0)  # [B, N, 128]
+#         # Step 3: Mask
+#         x = x.masked_fill(history_masks.unsqueeze(-1), 0)
 
-#         # Step 4: 汇聚成style向量（均值池化）
-#         x_sum = x.sum(dim=1)
-#         valid_len = history_lens.unsqueeze(-1).clamp(min=1)  # 避免除0
-#         x_avg = x_sum / valid_len                            # [B, 128]
+#         # Step 4: Attention
+#         x = self.context_attention(x, history_masks)  # [B, H]
 
-#         # Step 5: 映射输出风格向量
-#         role_style_vec = self.output_proj(x_avg)             # [B, 256]
-
+#         # Step 5: 映射输出维度
+#         role_style_vec = self.output_proj(x)          # [B, 256]
 #         return role_style_vec
-    
 
-# GRU + attention
+# plan A : linear + pooling
 class RoleStyleEncoder(nn.Module):
-    """ 改写后的语音风格编码器，结构参考 ConversationalContextEncoder """
-
     def __init__(self, model_config):
-        super(RoleStyleEncoder, self).__init__()
+        super().__init__()
         self.input_dim = model_config["style_encoder"]["input_dim"]     # 768
-        self.hidden_dim = model_config["style_encoder"]["hidden_dim"]   # 128
+        self.hidden_dim = model_config["style_encoder"]["hidden_dim"]   # 256
         self.output_dim = model_config["style_encoder"]["output_dim"]   # 256
-        self.num_layers = model_config["style_encoder"]["num_layers"]   # 2
         self.dropout = model_config["style_encoder"]["dropout"]         # 0.2
-        self.max_history_len = model_config["style_encoder"]["max_history_len"]  # 10
 
-        # 映射输入维度
-        self.input_proj = nn.Linear(self.input_dim, self.hidden_dim)
-
-        # GRU建模
-        self.gru = nn.GRU(
-            input_size=self.hidden_dim,
-            hidden_size=self.hidden_dim,
-            num_layers=self.num_layers,
-            dropout=self.dropout,
-            batch_first=True,
-            bidirectional=True
+        self.input_proj = nn.Sequential(
+            nn.Linear(self.input_dim, self.hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(self.dropout)
         )
 
-        self.gru_linear = nn.Sequential(
-            nn.Linear(2 * self.hidden_dim, self.hidden_dim),
-            nn.ReLU()
-        )
+        # Global pooling（去时序）
+        self.global_pooling = nn.AdaptiveAvgPool1d(1)  # 均值池化去时序 [B, D, T] -> [B, D, 1]
 
-        # Attention + 输出投影
-        self.context_attention = SLA(self.hidden_dim)
         self.output_proj = nn.Linear(self.hidden_dim, self.output_dim)
 
-    def forward(self, history_audio_emb, history_lens):
+    def forward(self, history_audio_emb, history_lens=None):
         """
-        输入:
-            history_audio_emb: [B, N, 768]
-            history_lens: [B]
+        history_audio_emb: [B, N, 768]
         输出:
             role_style_vec: [B, 256]
         """
-        device = history_audio_emb.device
-        history_lens = history_lens.to(device)
-        history_masks = get_mask_from_lengths(history_lens, self.max_history_len)  # [B, N]
-
         # Step 1: 映射输入
-        x = self.input_proj(history_audio_emb)  # [B, N, H]
+        x = self.input_proj(history_audio_emb)   # [B, N, H]
 
-        # Step 2: GRU建模
-        x, _ = self.gru(x)                      # [B, N, 2H]
-        x = self.gru_linear(x)                  # [B, N, H]
+        # Step 2: 去时序（pool）
+        x = x.transpose(1, 2)                    # [B, H, N]
+        x = self.global_pooling(x).squeeze(-1)   # [B, H]
 
-        # Step 3: Mask
-        x = x.masked_fill(history_masks.unsqueeze(-1), 0)
-
-        # Step 4: Attention
-        x = self.context_attention(x, history_masks)  # [B, H]
-
-        # Step 5: 映射输出维度
-        role_style_vec = self.output_proj(x)          # [B, 256]
+        # Step 3: 映射输出
+        role_style_vec = self.output_proj(x)     # [B, 256]
         return role_style_vec
 
+# plan B : attention
+# class RoleStyleEncoder(nn.Module):
+#     def __init__(self, model_config, num_tokens=10):
+#         super().__init__()
+#         self.input_dim = model_config["style_encoder"]["input_dim"]     # 768
+#         self.hidden_dim = model_config["style_encoder"]["hidden_dim"]   # 256
+#         self.output_dim = model_config["style_encoder"]["output_dim"]   # 256
 
-# class FiLM(nn.Module):
-#     """
-#     A Feature-wise Linear Modulation Layer from
-#     'FiLM: Visual Reasoning with a General Conditioning Layer'
-#     , extended to 'TADAM: Task dependent adaptive metric for improved few-shot learning'
-#     """
-#     def __init__(self):
-#         super(FiLM, self).__init__()
-#         self.s_gamma = nn.Parameter(torch.ones(1,), requires_grad=True)
-#         self.s_beta = nn.Parameter(torch.ones(1,), requires_grad=True)
+#         self.input_proj = nn.Linear(self.input_dim, self.hidden_dim)
+#         self.token_emb = nn.Parameter(torch.randn(num_tokens, self.hidden_dim))  # Learnable GST tokens
 
-#     def forward(self, x, gammas, betas):
+#         self.attention = nn.MultiheadAttention(self.hidden_dim, num_heads=4, batch_first=True)
+#         self.output_proj = nn.Linear(self.hidden_dim, self.output_dim)
+
+#     def forward(self, history_audio_emb, history_lens=None):
 #         """
-#         x -- [B, T, H]
-#         gammas -- [B, 1, H]
-#         betas -- [B, 1, H]
+#         history_audio_emb: [B, N, 768]
+#         返回: [B, 256]
 #         """
-#         gammas = self.s_gamma * gammas.expand_as(x)
-#         betas = self.s_beta * betas.expand_as(x)
-#         return (gammas + 1.0) * x + betas
+#         x = self.input_proj(history_audio_emb)    # [B, N, H]
+#         B = x.size(0)
 
+#         # Expand style tokens to batch
+#         tokens = self.token_emb.unsqueeze(0).expand(B, -1, -1)  # [B, T, H]
+
+#         # Attend over input features with style tokens as query
+#         attn_out, _ = self.attention(query=tokens, key=x, value=x)  # [B, T, H]
+
+#         # 聚合多个 token（可选 mean / attention pooling）
+#         style_vec = attn_out.mean(dim=1)          # [B, H]
+#         return self.output_proj(style_vec)        # [B, 256]

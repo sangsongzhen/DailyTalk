@@ -152,7 +152,12 @@ python3 synthesize.py --source /home/ssz/TTS/DailyTalk/preprocessed_data/DailyTa
 python mos_batch.py
 ```
 
+# TensorBoard
 
+Use
+```
+tensorboard --logdir output/log
+```
 
 # di yi ci shu shi hua liu cheng
 ```
