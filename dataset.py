@@ -704,6 +704,7 @@ class TextDataset(Dataset):
         self.history_type = model_config["history_encoder"]["type"]
         self.text_emb_size = model_config["history_encoder"]["text_emb_size"]
         self.max_history_len = model_config["history_encoder"]["max_history_len"]
+        self.audio_emb_size = model_config["style_encoder"]["audio_emb_size"]
 
         self.basename, self.speaker, self.text, self.raw_text, self.emotion = self.process_meta(
             filepath
