@@ -75,6 +75,8 @@ class CompTransTTS(nn.Module):
         
         # 语音角色风格编码器
         self.use_role_encoder = model_config["style_encoder"]["use_role_encoder"]
+        self.use_role_encoder_syn = model_config["style_encoder"]["use_role_encoder_synthesize"]
+
         if self.use_role_encoder:
             self.role_style_encoder = RoleStyleEncoder(model_config)
         
@@ -83,9 +85,9 @@ class CompTransTTS(nn.Module):
         if self.history_type != "none":
             if self.history_type == "Guo":
                 self.context_encoder = ConversationalContextEncoder(preprocess_config, model_config)
+        
         # FiLM
-        self.use_film = model_config["use_film"]
-
+        self.use_film = model_config["film"]["use_film"]
         self.film = FiLM()
         self.film_mlp = nn.Sequential(
             nn.Linear(model_config["transformer"]["encoder_hidden"], model_config["transformer"]["encoder_hidden"] * 2),
@@ -125,6 +127,7 @@ class CompTransTTS(nn.Module):
 
         # Context Encoding
         context_encodings = None
+        role_style_vec =None
         if self.history_type != "none":
             if self.history_type == "Guo":
                 (
@@ -136,7 +139,7 @@ class CompTransTTS(nn.Module):
                     history_audio_lens
                 ) = history_info
 
-                if self.use_role_encoder:
+                if self.use_role_encoder_syn:
                     role_style_vec = self.role_style_encoder(history_audio_embs, history_audio_lens)
                 context_encodings = self.context_encoder(
                     text_embs,
@@ -159,16 +162,19 @@ class CompTransTTS(nn.Module):
         if mix_encodings is not None and mix_encodings.shape[-1] == 512:
             mix_encodings = self.mix_proj(mix_encodings)
         
-        if mix_encodings is not None:
+        if self.use_film:
+            if mix_encodings is not None:
             # 假设 mix_encodings: [B, H]
-            gamma_beta = self.film_mlp(mix_encodings)       # [B, 2H]
-            gammas, betas = gamma_beta.chunk(2, dim=-1)     # [B, H], [B, H]
-            gammas = gammas.unsqueeze(1)  # → [B, 1, H]
-            betas = betas.unsqueeze(1)    # → [B, 1, H]
-            mix_encodings = mix_encodings.unsqueeze(1)      # [B, 1, H]
+                gamma_beta = self.film_mlp(mix_encodings)       # [B, 2H]
+                gammas, betas = gamma_beta.chunk(2, dim=-1)     # [B, H], [B, H]
+                gammas = gammas.unsqueeze(1)  # → [B, 1, H]
+                betas = betas.unsqueeze(1)    # → [B, 1, H]
+                mix_encodings = mix_encodings.unsqueeze(1)      # [B, 1, H]
 
-            mix_encodings = self.film(mix_encodings, gammas, betas)  # [B, 1, H]
-            mix_encodings = mix_encodings.squeeze(1)                 # → [B, H]
+                mix_encodings = self.film(mix_encodings, gammas, betas)  # [B, 1, H]
+                mix_encodings = mix_encodings.squeeze(1)                 # → [B, H]
+        else:
+            gammas = betas = None
 
 
         speaker_embeds = None

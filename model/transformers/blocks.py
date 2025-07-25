@@ -147,6 +147,7 @@ class ConvNorm(nn.Module):
 
         return x
 
+
 class FiLM(nn.Module):
     """
     A Feature-wise Linear Modulation Layer

@@ -1,6 +1,9 @@
 block_type: "transformer"
-use_film: True
 external_speaker_dim: 512
+
+film:
+  use_film: True
+  # use_film_synthesize: True
 
 duration_modeling:
   learn_alignment: True
@@ -8,6 +11,7 @@ duration_modeling:
 
 style_encoder:
   use_role_encoder: True
+  use_role_encoder_synthesize: True
   audio_emb_size: 768
   input_dim: 768
   hidden_dim: 128

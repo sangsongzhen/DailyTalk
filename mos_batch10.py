@@ -97,7 +97,7 @@ if __name__ == '__main__':
     predictor = torch.hub.load("tarepan/SpeechMOS:v1.2.0", "utmos22_strong", trust_repo=True)
 
     # 顶层目录
-    base_dir = "./output/result/DailyTalk/800000"
+    base_dir = "./output/result/DailyTalk/900000"
     # base_dir = "./raw_data/DailyTalk/data"
 
 
