@@ -14,8 +14,10 @@ optimizer:
   weight_decay: 0.0
   grad_clip_thresh: 1.0
   grad_acc_step: 1
-  warm_up_step: 4000
-  anneal_steps: [300000, 400000, 500000]
+  # warm_up_step: 4000
+  warm_up_step: 8000
+  # anneal_steps: [300000, 400000, 500000]
+  anneal_steps: [600000, 700000, 800000]
   anneal_rate: 0.3
 loss:
   dur_loss: "mse"

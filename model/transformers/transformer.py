@@ -80,6 +80,7 @@ class TextEncoder(nn.Module):
                     enc_output, gammas, betas, mask=mask, slf_attn_mask=slf_attn_mask
                 )
             else:
+                print("stack")
                 enc_output, enc_slf_attn = enc_layer(
                 enc_output, mask=mask, slf_attn_mask=slf_attn_mask
             )

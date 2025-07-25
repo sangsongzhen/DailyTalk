@@ -148,14 +148,43 @@ class ConvNorm(nn.Module):
         return x
 
 
+# class FiLM(nn.Module):
+#     """
+#     A Feature-wise Linear Modulation Layer
+#     """
+#     def __init__(self):
+#         super(FiLM, self).__init__()
+#         self.s_gamma = nn.Parameter(torch.ones(1), requires_grad=True)
+#         self.s_beta = nn.Parameter(torch.ones(1), requires_grad=True)
+
+#     def forward(self, x, gammas, betas):
+#         """
+#         x: [B, T, H]
+#         gammas: [B, 1, H] or [B, H]
+#         betas:  [B, 1, H] or [B, H]
+#         """
+#         if gammas.dim() == 2:
+#             gammas = gammas.unsqueeze(1)
+#         if betas.dim() == 2:
+#             betas = betas.unsqueeze(1)
+
+#         gammas = self.s_gamma * gammas.expand_as(x)
+#         betas = self.s_beta * betas.expand_as(x)
+#         return (1.0 + gammas) * x + betas
+
+# Advanced FiLM
 class FiLM(nn.Module):
     """
-    A Feature-wise Linear Modulation Layer
+    A Feature-wise Linear Modulation Layer with bounded gamma/beta
     """
-    def __init__(self):
+    def __init__(self, min_gamma=0.5, max_gamma=1.5, max_beta=1.0):
         super(FiLM, self).__init__()
         self.s_gamma = nn.Parameter(torch.ones(1), requires_grad=True)
         self.s_beta = nn.Parameter(torch.ones(1), requires_grad=True)
+
+        self.min_gamma = min_gamma
+        self.max_gamma = max_gamma
+        self.max_beta = max_beta
 
     def forward(self, x, gammas, betas):
         """
@@ -164,10 +193,16 @@ class FiLM(nn.Module):
         betas:  [B, 1, H] or [B, H]
         """
         if gammas.dim() == 2:
-            gammas = gammas.unsqueeze(1)
+            gammas = gammas.unsqueeze(1)  # [B, 1, H]
         if betas.dim() == 2:
-            betas = betas.unsqueeze(1)
+            betas = betas.unsqueeze(1)    # [B, 1, H]
 
+        # Scale modulation vectors
         gammas = self.s_gamma * gammas.expand_as(x)
         betas = self.s_beta * betas.expand_as(x)
+
+        # Clamp to avoid extreme modulation
+        gammas = torch.clamp(gammas, self.min_gamma - 1.0, self.max_gamma - 1.0)  # 调整 (1 + γ)
+        betas = torch.clamp(betas, -self.max_beta, self.max_beta)
+
         return (1.0 + gammas) * x + betas
