@@ -1,19 +1,12 @@
 import os
 import torch
+import argparse
 import numpy as np
 from tqdm import tqdm
 from speechbrain.pretrained import EncoderClassifier
 from speechbrain.dataio.dataio import read_audio
 from scipy.spatial.distance import cosine
 
-# 设置路径
-pred_root = "./output/result/DailyTalk/900000"
-ref_root = "./raw_data/DailyTalk/data"
-
-# 指定要评估的对话编号（可以替换为任意 10 个）
-# dialog_ids = [23, 403, 590, 877, 1046, 1172, 1618, 1898, 1983, 2463]
-# 15 more
-dialog_ids = [1112, 1126, 1238, 1298, 1325, 1452, 1898, 1908, 1936, 1987]
 
 # 加载 speaker encoder 模型
 classifier = EncoderClassifier.from_hparams(
@@ -38,8 +31,26 @@ def compute_similarity(emb1, emb2):
 
 # 主函数
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--restore_step", type=int, required=True)
+    parser.add_argument(
+        "--multiturn",
+        action='store_true'
+    )
+    args = parser.parse_args()
+
+    pred_root = os.path.join("./output/result/DailyTalk/", str(args.restore_step))
+    ref_root = "./raw_data/DailyTalk/data"
+
     all_similarities = []
     dialog_sim_dict = {}
+
+    if args.multiturn:
+        dialog_ids = [1112, 1126, 1238, 1298, 1325, 1452, 1898, 1908, 1936, 1987]
+    else:
+        dialog_ids = [23, 403, 590, 877, 1046, 1172, 1618, 1898, 1983, 2463]
+
 
     for dialog_id in dialog_ids:
         pred_dir = os.path.join(pred_root, str(dialog_id))

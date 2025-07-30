@@ -1,24 +1,3 @@
-[![arXiv](https://img.shields.io/badge/arXiv-2207.01063-2979ff.svg?logo=arXiv)](https://arxiv.org/abs/2207.01063)
-# DailyTalk: Spoken Dialogue Dataset for Conversational Text-to-Speech
-
-### Keon Lee<sup>\*</sup>, Kyumin Park<sup>\*</sup>, Daeyoung Kim
-
-In our [paper](https://arxiv.org/abs/2207.01063), we introduce DailyTalk, a high-quality conversational speech dataset designed for Text-to-Speech.
-
-<p align="center">
-    <img src="img/dailytalk_table.png" width="70%">
-</p>
-
-<p align="center">
-    <img src="img/dailytalk_model.png" width="70%">
-</p>
-
-**Abstract:** The majority of current Text-to-Speech (TTS) datasets, which are collections of individual utterances, contain few conversational aspects. In this paper, we introduce DailyTalk, a high-quality conversational speech dataset designed for conversational TTS. We sampled, modified, and recorded 2,541 dialogues from the open-domain dialogue dataset DailyDialog inheriting its annotated attributes. On top of our dataset, we extend prior work as our baseline, where a non-autoregressive TTS is conditioned on historical information in a dialogue. From the baseline experiment with both general and our novel metrics, we show that DailyTalk can be used as a general TTS dataset, and more than that, our baseline can represent contextual information from DailyTalk. The DailyTalk dataset and baseline code are freely available for academic use with CC-BY-SA 4.0 license.
-
-
-
-
-
 
 # Dataset
 You can download our [dataset](https://drive.google.com/drive/folders/1WRt-EprWs-2rmYxoWYT9_13omlhDHcaL). Please refer to [Statistic Details](https://github.com/keonlee9420/DailyTalk/tree/26239109fba7064a60ee02e5d4846152648142df#statistic-details) for details.
@@ -149,7 +128,12 @@ python3 synthesize.py --source /home/ssz/TTS/DailyTalk/preprocessed_data/DailyTa
 ```
 # MOS eval
 ```
-python mos_batch.py
+python mos.py --restore_step 900000 --multiturn(>15)
+```
+
+# Sim score eval
+```
+python sim.py --restore_step 900000 --multiturn(>15)
 ```
 
 # TensorBoard
